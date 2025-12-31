@@ -1,0 +1,21 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Admin • Login">
+  <main class="mx-auto max-w-md px-6 py-20">
+    <h1 class="text-2xl font-semibold">Acceso admin</h1>
+
+    <form method="POST" action="/api/login" class="mt-8 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+      <div>
+        <label class="block text-sm text-zinc-200">Email</label>
+        <input name="email" type="email" required class="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3" />
+      </div>
+      <div>
+        <label class="block text-sm text-zinc-200">Password</label>
+        <input name="password" type="password" required class="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3" />
+      </div>
+      <button class="w-full rounded-xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950">Entrar</button>
+    </form>
+  </main>
+</BaseLayout>

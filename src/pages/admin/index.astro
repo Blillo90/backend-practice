@@ -1,0 +1,69 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { createClient } from "@supabase/supabase-js";
+
+const token = Astro.cookies.get("sb_access_token")?.value;
+
+if (!token) {
+  return Astro.redirect("/admin/login");
+}
+
+const url = import.meta.env.SUPABASE_URL;
+const anon = import.meta.env.SUPABASE_ANON_KEY;
+
+const supabase = createClient(url, anon, { auth: { persistSession: false } });
+
+// Validar token
+const { data: userData } = await supabase.auth.getUser(token);
+if (!userData?.user) {
+  Astro.cookies.delete("sb_access_token", { path: "/" });
+  return Astro.redirect("/admin/login");
+}
+
+// Leer leads (RLS decide si eres admin)
+const { data: leads, error } = await supabase
+  .from("leads")
+  .select("id, created_at, name, email, message")
+  .order("created_at", { ascending: false })
+  .limit(200);
+---
+
+<BaseLayout title="Admin • Leads">
+  <main class="mx-auto max-w-5xl px-6 py-16">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-semibold">Leads</h1>
+      <form method="POST" action="/api/logout">
+        <button class="rounded-xl border border-zinc-700 px-4 py-2 hover:bg-zinc-900">Salir</button>
+      </form>
+    </div>
+
+    {error && (
+      <p class="mt-6 rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200">
+        No autorizado o error leyendo datos.
+      </p>
+    )}
+
+    <div class="mt-8 overflow-hidden rounded-2xl border border-zinc-800">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-zinc-900/60 text-zinc-200">
+          <tr>
+            <th class="p-3">Fecha</th>
+            <th class="p-3">Nombre</th>
+            <th class="p-3">Email</th>
+            <th class="p-3">Mensaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(leads ?? []).map((l) => (
+            <tr class="border-t border-zinc-800">
+              <td class="p-3 text-zinc-300">{new Date(l.created_at).toLocaleString("es-ES")}</td>
+              <td class="p-3">{l.name}</td>
+              <td class="p-3 text-zinc-300">{l.email}</td>
+              <td class="p-3 text-zinc-300">{l.message}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</BaseLayout>
