@@ -1,16 +1,73 @@
 ---
-
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="Landing • Contacto">
+  <main class="mx-auto max-w-xl px-6 py-16">
+    <header class="mb-10">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Landing sencilla + formulario
+      </h1>
+      <p class="mt-3 text-zinc-300">
+        Envíanos tu consulta y te respondemos en menos de 24h.
+      </p>
+    </header>
+
+    <section class="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 shadow-sm">
+      <form method="POST" action="/api/lead" class="space-y-4">
+        <!-- Honeypot anti-spam (si lo rellenan, lo ignoramos) -->
+        <div class="hidden">
+          <label>
+            Company
+            <input name="company" autocomplete="off" />
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-sm text-zinc-200">Nombre</label>
+          <input
+            name="name"
+            required
+            minlength="2"
+            class="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 outline-none focus:ring-2 focus:ring-zinc-600"
+            placeholder="Tu nombre"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm text-zinc-200">Email</label>
+          <input
+            type="email"
+            name="email"
+            required
+            class="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 outline-none focus:ring-2 focus:ring-zinc-600"
+            placeholder="tu@email.com"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm text-zinc-200">Mensaje</label>
+          <textarea
+            name="message"
+            required
+            minlength="10"
+            rows="5"
+            class="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 outline-none focus:ring-2 focus:ring-zinc-600"
+            placeholder="Cuéntanos qué necesitas…"
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full rounded-xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950 hover:bg-white"
+        >
+          Enviar
+        </button>
+
+        <p class="text-xs text-zinc-400">
+          Este formulario no usa scripts. Hace POST directo al backend.
+        </p>
+      </form>
+    </section>
+  </main>
+</BaseLayout>
