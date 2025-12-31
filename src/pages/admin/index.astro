@@ -2,6 +2,9 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { createClient } from "@supabase/supabase-js";
 
+/* =====================
+   Auth
+===================== */
 const token = Astro.cookies.get("sb_access_token")?.value;
 if (!token) return Astro.redirect("/admin/login");
 
@@ -10,9 +13,7 @@ const anon = import.meta.env.SUPABASE_ANON_KEY;
 
 const supabase = createClient(url, anon, {
   auth: { persistSession: false },
-  global: {
-    headers: { Authorization: `Bearer ${token}` },
-  },
+  global: { headers: { Authorization: `Bearer ${token}` } },
 });
 
 // Validar token
@@ -22,31 +23,109 @@ if (!userData?.user) {
   return Astro.redirect("/admin/login");
 }
 
-// Leer leads (RLS decide si eres admin)
-const { data: leads, error } = await supabase
+/* =====================
+   Filtros (query params)
+===================== */
+const q = (Astro.url.searchParams.get("q") ?? "").trim();
+const status = (Astro.url.searchParams.get("status") ?? "all").trim(); // all | pending | contacted
+
+/* =====================
+   Query leads
+===================== */
+let query = supabase
   .from("leads")
-  .select("id, created_at, name, email, message")
+  .select("id, created_at, name, email, message, contacted, contacted_at, notes")
   .order("created_at", { ascending: false })
   .limit(200);
+
+if (status === "pending") query = query.eq("contacted", false);
+if (status === "contacted") query = query.eq("contacted", true);
+
+if (q.length > 0) {
+  const safe = q.replaceAll(",", " ");
+  query = query.or(
+    `name.ilike.%${safe}%,email.ilike.%${safe}%,message.ilike.%${safe}%`
+  );
+}
+
+const { data: leads, error } = await query;
+
+/* =====================
+   KPIs
+===================== */
+const total = leads?.length ?? 0;
+const contactedCount = (leads ?? []).filter(l => l.contacted).length;
+const pendingCount = total - contactedCount;
 ---
 
-
 <BaseLayout title="Admin • Leads">
-  <main class="mx-auto max-w-5xl px-6 py-16">
+  <main class="mx-auto max-w-6xl px-6 py-16">
+
+    <!-- Header -->
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">Leads</h1>
       <form method="POST" action="/api/logout">
-        <button class="rounded-xl border border-zinc-700 px-4 py-2 hover:bg-zinc-900">Salir</button>
+        <button class="rounded-xl border border-zinc-700 px-4 py-2 hover:bg-zinc-900">
+          Salir
+        </button>
       </form>
     </div>
 
+    <!-- KPIs -->
+    <div class="mt-6 grid grid-cols-3 gap-4">
+      <div class="rounded-xl border border-zinc-800 p-4">
+        <p class="text-sm text-zinc-400">Total</p>
+        <p class="text-2xl font-semibold">{total}</p>
+      </div>
+      <div class="rounded-xl border border-zinc-800 p-4">
+        <p class="text-sm text-zinc-400">Pendientes</p>
+        <p class="text-2xl font-semibold">{pendingCount}</p>
+      </div>
+      <div class="rounded-xl border border-zinc-800 p-4">
+        <p class="text-sm text-zinc-400">Contactados</p>
+        <p class="text-2xl font-semibold">{contactedCount}</p>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <form class="mt-8 flex flex-wrap gap-3" method="GET" action="/admin">
+      <input
+        class="w-72 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2"
+        type="text"
+        name="q"
+        placeholder="Buscar por nombre, email o mensaje…"
+        value={q}
+      />
+
+      <select
+        class="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2"
+        name="status"
+      >
+        <option value="all" selected={status === "all"}>Todos</option>
+        <option value="pending" selected={status === "pending"}>Pendientes</option>
+        <option value="contacted" selected={status === "contacted"}>Contactados</option>
+      </select>
+
+      <button class="rounded-xl border border-zinc-700 px-4 py-2 hover:bg-zinc-900">
+        Filtrar
+      </button>
+
+      <a
+        class="rounded-xl border border-zinc-700 px-4 py-2 hover:bg-zinc-900"
+        href={`/admin?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`}
+      >
+        Refresh
+      </a>
+    </form>
+
     {error && (
       <p class="mt-6 rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200">
-        No autorizado o error leyendo datos.
+        Error o no autorizado al leer los leads.
       </p>
     )}
 
-    <div class="mt-8 overflow-hidden rounded-2xl border border-zinc-800">
+    <!-- Tabla -->
+    <div class="mt-8 overflow-x-auto rounded-2xl border border-zinc-800">
       <table class="w-full text-left text-sm">
         <thead class="bg-zinc-900/60 text-zinc-200">
           <tr>
@@ -54,15 +133,72 @@ const { data: leads, error } = await supabase
             <th class="p-3">Nombre</th>
             <th class="p-3">Email</th>
             <th class="p-3">Mensaje</th>
+            <th class="p-3">Estado</th>
+            <th class="p-3">Notas</th>
           </tr>
         </thead>
+
         <tbody>
           {(leads ?? []).map((l) => (
-            <tr class="border-t border-zinc-800">
-              <td class="p-3 text-zinc-300">{new Date(l.created_at).toLocaleString("es-ES")}</td>
+            <tr class="border-t border-zinc-800 align-top">
+              <td class="p-3 text-zinc-400">
+                {new Date(l.created_at).toLocaleString("es-ES")}
+              </td>
               <td class="p-3">{l.name}</td>
-              <td class="p-3 text-zinc-300">{l.email}</td>
-              <td class="p-3 text-zinc-300">{l.message}</td>
+              <td class="p-3 text-zinc-400">{l.email}</td>
+              <td class="p-3 text-zinc-400 max-w-sm">{l.message}</td>
+
+              <!-- Estado -->
+              <td class="p-3">
+                <form method="POST" action="/api/leads/contacted">
+                  <input type="hidden" name="id" value={l.id} />
+                  <input type="hidden" name="next" value={String(!l.contacted)} />
+                  <input
+                    type="hidden"
+                    name="redirectTo"
+                    value={Astro.url.pathname + Astro.url.search}
+                  />
+
+                  <button
+                    class={`rounded-xl border px-3 py-1 ${
+                      l.contacted
+                        ? "border-emerald-700 bg-emerald-950/40 text-emerald-200"
+                        : "border-zinc-700 bg-zinc-950 text-zinc-200"
+                    } hover:bg-zinc-900`}
+                  >
+                    {l.contacted ? "Contactado" : "Pendiente"}
+                  </button>
+
+                  {l.contacted_at && (
+                    <div class="mt-1 text-xs text-zinc-500">
+                      {new Date(l.contacted_at).toLocaleString("es-ES")}
+                    </div>
+                  )}
+                </form>
+              </td>
+
+              <!-- Notas -->
+              <td class="p-3">
+                <form method="POST" action="/api/leads/notes" class="flex gap-2">
+                  <input type="hidden" name="id" value={l.id} />
+                  <input
+                    type="hidden"
+                    name="redirectTo"
+                    value={Astro.url.pathname + Astro.url.search}
+                  />
+
+                  <textarea
+                    name="notes"
+                    rows="2"
+                    class="min-w-[260px] rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2"
+                    placeholder="Notas internas"
+                  >{l.notes ?? ""}</textarea>
+
+                  <button class="rounded-xl border border-zinc-700 px-3 py-2 hover:bg-zinc-900">
+                    Guardar
+                  </button>
+                </form>
+              </td>
             </tr>
           ))}
         </tbody>
