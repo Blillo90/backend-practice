@@ -1,0 +1,15 @@
+---
+const { title = "Landing" } = Astro.props;
+import "../styles/global.css";
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <slot />
+  </body>
+</html>
