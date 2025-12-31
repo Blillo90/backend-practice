@@ -3,18 +3,20 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { createClient } from "@supabase/supabase-js";
 
 const token = Astro.cookies.get("sb_access_token")?.value;
-
-if (!token) {
-  return Astro.redirect("/admin/login");
-}
+if (!token) return Astro.redirect("/admin/login");
 
 const url = import.meta.env.SUPABASE_URL;
 const anon = import.meta.env.SUPABASE_ANON_KEY;
 
-const supabase = createClient(url, anon, { auth: { persistSession: false } });
+const supabase = createClient(url, anon, {
+  auth: { persistSession: false },
+  global: {
+    headers: { Authorization: `Bearer ${token}` },
+  },
+});
 
 // Validar token
-const { data: userData } = await supabase.auth.getUser(token);
+const { data: userData } = await supabase.auth.getUser();
 if (!userData?.user) {
   Astro.cookies.delete("sb_access_token", { path: "/" });
   return Astro.redirect("/admin/login");
@@ -27,6 +29,7 @@ const { data: leads, error } = await supabase
   .order("created_at", { ascending: false })
   .limit(200);
 ---
+
 
 <BaseLayout title="Admin • Leads">
   <main class="mx-auto max-w-5xl px-6 py-16">
